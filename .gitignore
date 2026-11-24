@@ -1,0 +1,19 @@
+# Python / Poetry
+.venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# Data is downloaded by scripts/download_data.py
+data/
+
+# Large run outputs (CSV logs in results/ are small and committed)
+results/quick/
+results/**/*.npy
+results/**/*.png
+
+# Quarto build files
+report/*_files/
+report/.quarto/
+
+.DS_Store

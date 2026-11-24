@@ -1,0 +1,61 @@
+---
+title: "Does the Architecture Do the Denoising? Early Stopping and Convolutional Priors in the Deep Image Prior"
+subtitle: "AAI2 Practical · Topic B4"
+author: "TODO"
+date: today
+format:
+  pdf:
+    documentclass: article
+    papersize: a4
+    geometry: margin=2.2cm
+    number-sections: true
+bibliography: references.bib
+---
+
+# Problem and motivation
+
+TODO
+
+# Theoretical background
+
+<!-- TODO: turn the notes below into prose (~½ page). See PLAN.md §2. -->
+
+**Inverse problem.** We observe $y = x + n$, $n \sim \mathcal{N}(0, \sigma^2 I)$. Classical denoising solves $\hat{x} = \arg\min_x \lVert x - y \rVert^2 + \lambda R(x)$ with a hand-designed regulariser $R$.
+
+**Deep Image Prior.** DIP replaces $R$ by a generator: $\theta^* = \arg\min_\theta \lVert f_\theta(z) - y \rVert^2$, $\hat{x} = f_{\theta^*}(z)$ [@ulyanov2018dip]. The network can eventually fit the noise as well, so early stopping acts as the regulariser.
+
+**Spectral bias.** Convolutional generators fit low-frequency content before high-frequency content. The upsampling operation is a key source of this bias [@heckel2020structuralbias; @heckel2019deepdecoder].
+
+**Bayesian view.** In the infinite-width limit DIP is a Gaussian process prior. Posterior averaging reduces the need for early stopping [@cheng2019bayesian].
+
+**Stopping without the clean image.** For held-out pixels $M$ that never enter the loss,
+$$\mathbb{E}\big[\lVert f_\theta(z) - y \rVert_M^2\big] = \lVert f_\theta(z) - x \rVert_M^2 + |M|\sigma^2,$$
+so the held-out loss tracks the true error. The discrepancy principle stops once the training MSE falls below $\sigma^2$.
+
+**Metrics.** PSNR $= 10\log_{10}(1/\text{MSE})$ and SSIM [@wang2004ssim].
+
+# Related literature
+
+TODO [@cheng2019bayesian; @heckel2019deepdecoder; @heckel2020structuralbias; @wang2023earlystopping; @zhang2017rethinking].
+
+# Experimental design
+
+TODO
+
+# Results
+
+TODO
+
+# Interpretation
+
+TODO
+
+# Limitations
+
+TODO
+
+# Conclusion
+
+TODO
+
+# References {.unnumbered}
