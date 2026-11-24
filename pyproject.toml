@@ -21,6 +21,7 @@ packages = [{ include = "dip", from = "src" }]
 [tool.poetry.group.dev.dependencies]
 jupyterlab = "^4.0"
 ipykernel = "^6.29"
+quarto-cli = "^1.11.9"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]

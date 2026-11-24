@@ -17,3 +17,8 @@ report/*_files/
 report/.quarto/
 
 .DS_Store
+
+# Quarto caches (the rendered note.pdf and slides.html ARE committed)
+.quarto/
+**/.quarto/
+slides/*_files/
