@@ -14,6 +14,7 @@ import argparse
 import time
 
 import numpy as np
+import pandas as pd
 import torch
 from skimage import io
 
@@ -24,9 +25,24 @@ from dip.utils import DATA_DIR, RESULTS_DIR, add_gaussian_noise, load_image, shu
 IMAGES = ["kodim03", "kodim05", "kodim13", "kodim15"]
 SNAPSHOTS = (100, 500, 1000, 2000, 3000)
 
-# Learning rate per architecture. Update after the lr sweep (--exp lr_sweep).
-LR = {"unet": 0.01, "unet_1x1": 0.01, "unet_1x1_wide": 0.01, "unet_nearest": 0.01, "mlp": 0.001}
+# Default learning rate per architecture. For h3, the best lr from the lr sweep is used
+# instead whenever results/lr_sweep/ exists (see best_lr below).
+LR = {"unet": 0.01, "unet_1x1": 0.003, "unet_1x1_wide": 0.001, "unet_nearest": 0.01, "mlp": 0.01}
 H3_MODELS = ("unet", "unet_1x1", "unet_1x1_wide", "unet_nearest", "mlp")
+SWEEP_LRS = (0.0003, 0.001, 0.003, 0.01)
+
+
+def best_lr(model: str) -> float:
+    """Learning rate with the highest peak PSNR in the lr sweep (falls back to LR[model])."""
+    best, best_psnr = LR[model], -np.inf
+    for lr in SWEEP_LRS:
+        name = run_name(dict(model=model, image="kodim03", target="noisy", sigma=25, seed=0, lr=lr))
+        path = RESULTS_DIR / "lr_sweep" / f"{name}.csv"
+        if path.exists():
+            peak = pd.read_csv(path)["psnr_clean"].max()
+            if peak > best_psnr:
+                best, best_psnr = lr, peak
+    return best
 
 
 def experiments(name: str) -> list[dict]:
@@ -47,13 +63,18 @@ def experiments(name: str) -> list[dict]:
     elif name == "h3":
         # Architecture ablation at sigma = 25 (kernels: H3a, upsampling: H3b, no structure: MLP)
         for model in H3_MODELS:
+            lr = best_lr(model)
+            print(f"h3: {model} uses lr={lr}")
             for img in IMAGES:
-                runs.append(dict(model=model, image=img, target="noisy", sigma=25, seed=0))
+                # No held-out pixels: models without spatial mixing (1×1, MLP) cannot fill them in,
+                # which would penalise them twice. Held-out pixels are only needed for H4 (uses h1).
+                runs.append(dict(model=model, image=img, target="noisy", sigma=25, seed=0, lr=lr, holdout_frac=0.0))
     elif name == "lr_sweep":
         # Fair comparison for H3: try a few learning rates per architecture on one image
         for model in H3_MODELS:
-            for lr in (0.001, 0.003, 0.01):
-                runs.append(dict(model=model, image="kodim03", target="noisy", sigma=25, seed=0, lr=lr))
+            for lr in SWEEP_LRS:
+                runs.append(dict(model=model, image="kodim03", target="noisy", sigma=25, seed=0, lr=lr,
+                                 holdout_frac=0.0))
     else:
         raise ValueError(f"unknown experiment: {name}")
     return runs
