@@ -1,61 +1,173 @@
 ---
-title: "Does the Architecture Do the Denoising? Early Stopping and Convolutional Priors in the Deep Image Prior"
-subtitle: "AAI2 Practical · Topic B4"
-author: "TODO"
+title: "Which Part of the Architecture Does the Denoising? Convolutional Priors and Early Stopping in the Deep Image Prior"
+subtitle: "AAI2 Practical · Topic B4 · Architectural Priors in Image Restoration"
+author: "Team B4"  # TODO: add the names of all team members
 date: today
 format:
   pdf:
     documentclass: article
     papersize: a4
-    geometry: margin=2.2cm
+    fontsize: 10pt
+    geometry: "margin=1.7cm"
     number-sections: true
+    colorlinks: true
+    fig-pos: "H"
+    include-in-header:
+      text: |
+        \usepackage{microtype}
+        \usepackage{enumitem}
+        \setlist{nosep, leftmargin=1.4em}
+        \setlength{\abovecaptionskip}{3pt}
+        \setlength{\textfloatsep}{8pt plus 2pt minus 2pt}
+        \usepackage{titlesec}
+        \titlespacing*{\section}{0pt}{8pt plus 2pt}{3pt}
 bibliography: references.bib
+link-citations: true
 ---
 
 # Problem and motivation
 
-TODO
+Denoising asks for a clean image $x$ given only $y = x + n$, so every denoiser needs a *prior* about what natural images look like. The Deep Image Prior (DIP) [@ulyanov2018dip] showed that a randomly initialised convolutional network, never trained on data, can serve as one. Fitting it to the single noisy image reproduces the image content long before the noise, so stopping early yields a denoised image.
+
+We ask two questions:
+
+1. **Is the convolutional architecture itself responsible for fitting structure before noise, and if so, which part of it?**
+2. **Can we choose when to stop without the clean image?** Without that, DIP is not usable in practice.
 
 # Theoretical background
 
-<!-- TODO: turn the notes below into prose (~½ page). See PLAN.md §2. -->
+**Classical denoising** solves $\hat{x} = \arg\min_x \lVert x - y\rVert^2 + \lambda R(x)$ with a hand-designed regulariser $R$.
 
-**Inverse problem.** We observe $y = x + n$, $n \sim \mathcal{N}(0, \sigma^2 I)$. Classical denoising solves $\hat{x} = \arg\min_x \lVert x - y \rVert^2 + \lambda R(x)$ with a hand-designed regulariser $R$.
+**DIP** replaces $R$ by a generator $f_\theta$ with fixed random input $z$ and optimises only the weights:
+$$\theta^* = \arg\min_\theta \lVert f_\theta(z) - y \rVert^2, \qquad \hat{x} = f_{\theta^*}(z).$$
+Our U-Net has 454k weights for 196k pixel values, so it can eventually reproduce $y$ including the noise. The regularisation is *implicit*: it lies in which solutions gradient descent reaches first, and early stopping selects them.
 
-**Deep Image Prior.** DIP replaces $R$ by a generator: $\theta^* = \arg\min_\theta \lVert f_\theta(z) - y \rVert^2$, $\hat{x} = f_{\theta^*}(z)$ [@ulyanov2018dip]. The network can eventually fit the noise as well, so early stopping acts as the regulariser.
+**Spectral bias.** Gradient descent fits low-frequency functions before high-frequency ones. Natural images concentrate their energy at low frequencies, while white noise spreads it over all frequencies, so the noise is fitted late. Heckel and Soltanolkotabi [-@heckel2020structuralbias] prove this for simplified convolutional generators and attribute it to upsampling and weight sharing. The Deep Decoder [@heckel2019deepdecoder], with only $1{\times}1$ convolutions plus upsampling, is still a strong prior. **The literature therefore predicts that upsampling matters more than the spatial extent of the kernels.**
 
-**Spectral bias.** Convolutional generators fit low-frequency content before high-frequency content. The upsampling operation is a key source of this bias [@heckel2020structuralbias; @heckel2019deepdecoder].
+**Stopping signals without $x$.**
 
-**Bayesian view.** In the infinite-width limit DIP is a Gaussian process prior. Posterior averaging reduces the need for early stopping [@cheng2019bayesian].
+- **Discrepancy principle.** A perfect reconstruction has expected training MSE $\tfrac1N\mathbb{E}\lVert x-y\rVert^2=\sigma^2$, so a training MSE below $\sigma^2$ signals that noise is being fitted.
+- **Held-out pixels.** For a pixel set $M$ excluded from the loss, the noise $n_M$ is independent of everything the network sees, hence $\mathbb{E}\lVert f-y\rVert_M^2=\lVert f-x\rVert_M^2+|M|\sigma^2$. The held-out loss is the true error on $M$ plus a constant.
 
-**Stopping without the clean image.** For held-out pixels $M$ that never enter the loss,
-$$\mathbb{E}\big[\lVert f_\theta(z) - y \rVert_M^2\big] = \lVert f_\theta(z) - x \rVert_M^2 + |M|\sigma^2,$$
-so the held-out loss tracks the true error. The discrepancy principle stops once the training MSE falls below $\sigma^2$.
-
-**Metrics.** PSNR $= 10\log_{10}(1/\text{MSE})$ and SSIM [@wang2004ssim].
+**Bayesian view.** Cheng et al. [-@cheng2019bayesian] show that DIP tends to a Gaussian-process prior at infinite width, and that averaging posterior samples (SGLD) reduces the need for early stopping. We test a simple approximation: an exponential moving average (EMA) of the outputs.
 
 # Related literature
 
-TODO [@cheng2019bayesian; @heckel2019deepdecoder; @heckel2020structuralbias; @wang2023earlystopping; @zhang2017rethinking].
+Ulyanov et al. [-@ulyanov2018dip] showed that a natural image is fitted much faster than shuffled pixels or noise, paralleling the finding that networks memorise random labels, only more slowly [@zhang2017rethinking]. The origin of the prior has been studied theoretically [@heckel2020structuralbias] and with deliberately weak architectures [@heckel2019deepdecoder]. Stopping without ground truth has been addressed through the variance of recent outputs [@wang2023earlystopping] and through posterior averaging [@cheng2019bayesian].
+
+**Our contribution** is an ablation that separates **kernels** from **upsampling** within one standard DIP architecture, with the parameter count controlled, and a direct comparison of simple no-reference stopping rules against the oracle.
 
 # Experimental design
 
-TODO
+**Data.** Four Kodak images (`kodim03/05/13/15`), centre-cropped to $256{\times}256$. Additive Gaussian noise with $\sigma\in\{25,50\}$ (0–255 scale), not clipped, so its variance is exactly $\sigma^2$.
+
+**Model and optimisation.**
+
+- Simplified DIP U-Net: 4 levels, 64 channels, $3{\times}3$ convolutions, BatchNorm, LeakyReLU, skip connections, bilinear upsampling.
+- Fixed 32-channel input $z$, perturbed by $\mathcal{N}(0,(1/30)^2)$ each step.
+- Adam, MSE loss, 3000 iterations.
+- Every 10 iterations we log the training loss, the loss on 10 % held-out pixels, and PSNR/SSIM [@wang2004ssim] against $x$ for the raw output and its EMA (decay 0.99).
+
+**Experiments.** **H1** (does PSNR peak and fall?): U-Net, 4 images × 2 noise levels, plus 2 extra seeds. **H2** (structure before noise?): fit a clean image, its shuffled pixels, and uniform noise. **H3** (which component?): five architectures (@tbl-h3) at $\sigma=25$. **H4** (stopping without $x$?) and **H5** (does EMA help?): evaluated on the H1 logs.
+
+**Fairness controls for H3.** Each model uses its best learning rate from a sweep over $\{3{\cdot}10^{-4},10^{-3},3{\cdot}10^{-3},10^{-2}\}$. No pixels are held out, since models without spatial mixing cannot inpaint them. A widened $1{\times}1$ variant matches the baseline's parameter count.
+
+**Compute.** 56 runs of about 50 s each on an NVIDIA L4, plus two 10,000-iteration runs. All seeds are fixed.
 
 # Results
 
-TODO
+**H1: PSNR peaks, then falls (@fig-h1).**
+
+- Every run has a clear peak.
+- The decline grows with noise: on average 1.6 dB at $\sigma=25$ and 4.5 dB at $\sigma=50$. The peak also comes earlier at $\sigma=50$ (iterations 340–530 vs. 720–1990).
+- The textured images `kodim05` and `kodim13` peak late and barely decline at $\sigma=25$.
+- Three seeds differ by only 0.1 dB.
+- SSIM agrees with PSNR, except for a short spike after 20–40 iterations, when it briefly rewards a very smooth early output.
+
+![PSNR (top) and SSIM (bottom) vs. the clean image while fitting the noisy image; dots mark maxima.](../figures/h1_curves.pdf){#fig-h1 width=50%}
+
+**H2: structure before noise.**
+
+- The natural image reaches a training MSE below 0.01 after 20 (`kodim03`) and 130 (`kodim13`) iterations.
+- Shuffled pixels take 2700 iterations or never get there, and uniform noise never does.
+- Shuffling keeps the colours but removes the speed-up. This reproduces Ulyanov et al.
+
+**H3: which component matters (@tbl-h3, @fig-h3).**
+
+- **Within 3000 iterations, the prior largely disappears without spatial kernels.** The $1{\times}1$ network gains nothing over the noisy input on average. Matching the parameter count recovers only 2 of the 6 dB lost.
+- **Nearest-neighbour upsampling leaves the peak unchanged,** but the peak arrives about 3× earlier and the output then collapses almost 4× as fast.
+- **The MLP has no prior:** it reproduces the noisy image within a few hundred iterations.
+
+- **Long runs refine this.** Over 10,000 iterations on `kodim03`, the parameter-matched $1{\times}1$ network keeps improving and halves its gap to the U-Net (27.5 vs. 29.1 dB). Its training MSE, however, still has not reached $\sigma^2$, which the U-Net reaches after 630 iterations. Without spatial kernels, structure is fitted more than 15× more slowly.
+
+| Model | Params | Peak PSNR | vs. noisy | Peak iter. | Drop |
+|:--|--:|--:|--:|--:|--:|
+| U-Net ($3{\times}3$, bilinear) | 454k | **26.4** | +6.0 | 1620 | 1.4 |
+| U-Net $1{\times}1$ | 69k | 20.1 | −0.4 | 2870 | 0.4 |
+| U-Net $1{\times}1$, wide | 454k | 22.1 | +1.6 | 2930 | 0.1 |
+| U-Net, nearest upsampling | 454k | **26.6** | +6.1 | 490 | **5.2** |
+| MLP | 50.6M | 20.8 | +0.3 | 310 | 0.3 |
+
+: H3 ablation at $\sigma=25$, means over 4 images (dB). "Drop" is the PSNR decline from the peak to iteration 3000. {#tbl-h3}
+
+![Peak PSNR and drop after the peak per architecture (dots: images; bars: means; dashed: noisy input).](../figures/h3_summary.pdf){#fig-h3 width=60%}
+
+**H4: stopping without the clean image (@tbl-h4, @fig-h4).**
+
+- **The discrepancy principle comes within 0.25 dB of the oracle,** with $\sigma$ estimated from the noisy image alone (estimates within 2 units of the true $\sigma$).
+- **Held-out pixels lose about 1 dB,** because they consistently stop too late.
+- **A fixed budget is worst,** losing up to 4.4 dB, because the best iteration ranges from 340 to 1990.
+
+| Rule | Needs | PSNR lost: mean | median | max | SSIM lost: mean |
+|:--|:--|--:|--:|--:|--:|
+| Fixed (1500 iterations) | — | 1.63 | 1.58 | 4.43 | 0.062 |
+| Held-out pixels | — | 1.00 | 1.12 | 2.00 | 0.037 |
+| Noise level, true $\sigma$ | $\sigma$ | 0.26 | 0.23 | 0.59 | 0.006 |
+| Noise level, estimated $\sigma$ | — | **0.24** | 0.25 | 0.48 | 0.008 |
+
+: Loss relative to the oracle stopping point over the 10 H1 runs (dB). {#tbl-h4}
+
+![kodim03, $\sigma=50$. Left: iteration chosen by each rule. Middle: the training MSE crosses $\sigma^2$ close to the oracle. Right: the held-out loss reaches its minimum later than the true full-image error.](../figures/h4_example.pdf){#fig-h4 width=84%}
+
+**H5: averaging.**
+
+- The EMA output is about 2 dB better throughout (mean peak 27.2 vs. 25.1 dB).
+- Its decline after the peak is not smaller (3.3 vs. 3.1 dB), so H5 as stated is refuted.
 
 # Interpretation
 
-TODO
+**The parts of the architecture play different roles.**
+
+- **The $3{\times}3$ kernels make structure fit fast.** Without them, even at equal capacity, the image is fitted more than 15× more slowly, so within a normal budget there is little denoising. With 3× more iterations the gap halves, so the kernels matter mainly for speed; whether the gap closes completely remains open. This partly contradicts the literature's prediction. A plausible reason: the Deep Decoder upsamples after every layer and has no skips, whereas in our $1{\times}1$ U-Net per-pixel information can bypass the upsampling through the full-resolution skip path, which has no spatial prior.
+- **Bilinear upsampling acts as a brake on noise.** It does not change the best output but strongly slows the later fitting of high frequencies. The spectral-bias argument for upsampling [@heckel2020structuralbias] thus describes the *late* phase of optimisation in our results.
+
+**The simplest principled stopping rule works best.** DIP's training loss falls smoothly through $\sigma^2$ near the oracle point, and $\sigma$ can be estimated reliably.
+
+**The held-out rule fails for a reason our derivation hides.** The identity concerns the error on held-out pixels, but those are only inpainted from their neighbours and never fitted directly. Noise reaches them later, so their error keeps falling after the full-image error has turned upward.
+
+**EMA helps mainly by averaging out the jitter** introduced by the input perturbation (an ensembling effect), not by changing the dynamics of overfitting.
 
 # Limitations
 
-TODO
+- **Data.** Only four $256{\times}256$ images with synthetic Gaussian noise. Real sensor noise is correlated and signal-dependent, which breaks both stopping signals.
+- **Seeds.** Mostly one seed per run; the measured seed spread is about 0.1 dB.
+- **Slow $1{\times}1$ variants.** They were still improving even after 10,000 iterations. The long runs cover one image only and ran on different hardware (about 0.3 dB non-determinism).
+- **Scope of the claim.** One architecture family, with learning rates tuned on one image. "Necessary here" does not mean "sufficient" or "general".
+- **Metrics.** PSNR and SSIM are imperfect proxies for perceived quality. We avoided LPIPS because it would bring a learned prior into a study of priors.
+- **EMA.** It is not SGLD, and stopping rules were not evaluated on the EMA output.
 
 # Conclusion
 
-TODO
+**Part 1: the convolutional architecture is responsible, but its parts do different jobs.**
+
+- The spatial kernels make DIP work. Without them, structure is fitted more than 15× more slowly, so within a normal budget there is little or no denoising, even at equal parameter count. With no spatial structure at all (MLP) there is none.
+- Bilinear upsampling does not create the prior but slows the fitting of noise, which makes the stopping point more forgiving.
+
+**Part 2: yes, we can stop without the clean image.** The discrepancy principle with $\sigma$ estimated from the noisy image lands within about 0.25 dB of the best stopping point. That is far better than a fixed budget, and better than held-out pixels, whose justification proves too optimistic in practice.
+
+**Reproducibility.** `scripts/run_all.py` reproduces all runs; `scripts/make_figures.py` regenerates every figure and table.
 
 # References {.unnumbered}
+
+::: {#refs}
+:::
