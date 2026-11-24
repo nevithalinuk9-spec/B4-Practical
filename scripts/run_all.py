@@ -69,6 +69,12 @@ def experiments(name: str) -> list[dict]:
                 # No held-out pixels: models without spatial mixing (1×1, MLP) cannot fill them in,
                 # which would penalise them twice. Held-out pixels are only needed for H4 (uses h1).
                 runs.append(dict(model=model, image=img, target="noisy", sigma=25, seed=0, lr=lr, holdout_frac=0.0))
+    elif name == "h3_long":
+        # Are the 1×1 variants worse because of a weaker prior, or only because they are slower?
+        # Same setting as h3 on kodim03, but 10,000 iterations.
+        for model in ("unet_1x1", "unet_1x1_wide"):
+            runs.append(dict(model=model, image="kodim03", target="noisy", sigma=25, seed=0,
+                             lr=best_lr(model), holdout_frac=0.0, n_iter=10000))
     elif name == "lr_sweep":
         # Fair comparison for H3: try a few learning rates per architecture on one image
         for model in H3_MODELS:
@@ -102,7 +108,7 @@ def make_target(r: dict, x: torch.Tensor) -> torch.Tensor:
 
 def main() -> None:
     p = argparse.ArgumentParser()
-    p.add_argument("--exp", default="h1", help="h1 | h2 | h3 | lr_sweep | all")
+    p.add_argument("--exp", default="h1", help="h1 | h2 | h3 | h3_long | lr_sweep | all")
     p.add_argument("--iters", type=int, default=3000)
     p.add_argument("--quick", action="store_true", help="smoke test: 1 run, 100 iterations, separate folder")
     args = p.parse_args()
@@ -130,15 +136,18 @@ def main() -> None:
             lr = r.get("lr", LR[r["model"]])
 
             t0 = time.time()
+            run_iters = n_iter if args.quick else r.get("n_iter", n_iter)
             res = fit(
                 model, y,
                 x_clean=x if r["target"] == "noisy" else y,
-                n_iter=n_iter, lr=lr,
+                n_iter=run_iters, lr=lr,
                 holdout_frac=r.get("holdout_frac", 0.1),
-                snapshot_iters=SNAPSHOTS, seed=r["seed"],
+                snapshot_iters=SNAPSHOTS + ((5000, 10000) if run_iters > 3000 else ()), seed=r["seed"],
             )
             log = res.log
             for k, v in {**r, "lr": lr, "params": count_params(model)}.items():
+                if k == "n_iter":
+                    continue
                 log[k] = v
             log.to_csv(csv_path, index=False)
 
