@@ -17,9 +17,11 @@ scripts/
   download_data.py   downloads and crops the Kodak test images into data/
   run_all.py         runs the experiments, writes one CSV per run to results/
   make_figures.py    re-executes all notebooks → every figure and table
+  build_notebooks.py regenerates the notebook files themselves (cells + written findings)
 notebooks/        01_H1_peak, 02_H2_fitting_speed, 03_H3_architectures, 04_H4_H5_stopping
 figures/          figures used in the note and slides
-report/           Quarto scientific note (note.qmd) + references.bib
+report/           Quarto scientific note (note.qmd → note.pdf) + references.bib
+slides/           Quarto reveal.js slide deck (slides.qmd → slides.html)
 papers/           seed papers and further literature
 ```
 
@@ -48,17 +50,28 @@ poetry run python scripts/run_all.py --exp all
 poetry run python scripts/make_figures.py
 ```
 
-- `run_all.py` runs `h1`, `h2`, `lr_sweep` and `h3`: 56 runs, about 50 s each on an NVIDIA L4 and about 2.5 min on Apple MPS.
+- `run_all.py --exp all` runs `h1`, `h2`, `lr_sweep` and `h3`: 56 runs, about 50 s each on an NVIDIA L4 and about 2.5 min on Apple MPS. `--exp h3_long` adds two 10,000-iteration runs of the 1×1 variants.
 - `h3` automatically uses each model's best learning rate from `lr_sweep`.
 - Runs whose CSV already exists are skipped, so the script can be interrupted and resumed. Use `--quick` for a short smoke test.
 - The CSV logs from our runs are committed in `results/`, so `make_figures.py` alone reproduces every figure and table without re-running the experiments.
 - To explore interactively, use `poetry run jupyter lab`.
 
-Render the note (needs [Quarto](https://quarto.org) and `quarto install tinytex`):
+### Note and slides
+
+Quarto is installed as a Poetry dev dependency (`quarto-cli`). PDF output also needs TinyTeX, a one-time install:
 
 ```bash
-quarto render report/note.qmd --to pdf
+poetry run quarto install tinytex
 ```
+```bash
+poetry run quarto render report/note.qmd --to pdf
+```
+```bash
+poetry run quarto render slides/slides.qmd
+```
+
+- The note is `report/note.pdf` (3–4 pages plus references).
+- The slides are a self-contained reveal.js page, `slides/slides.html`. Open it in a browser; press `S` for speaker notes, or append `?print-pdf` to the URL and print to get a PDF.
 
 ## Data
 

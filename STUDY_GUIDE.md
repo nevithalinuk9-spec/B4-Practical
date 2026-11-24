@@ -285,17 +285,17 @@ Details, tables and figures are in `notebooks/` and `figures/`. The noisy input 
 |---|---|---|
 | **H1** PSNR peaks, then falls | ✅ confirmed | Every run peaks. Mean drop 1.6 dB (σ = 25) vs. 4.5 dB (σ = 50). Seed spread ≈ 0.1 dB |
 | **H2** structure fitted before noise | ✅ confirmed (reproduces Ulyanov) | Natural image below MSE 0.01 after 20–130 iterations; shuffled pixels after 2700 or never; noise never |
-| **H3a** 3×3 kernels needed | ✅ confirmed (against the literature's prediction) | Mean peak 26.4 dB → 20.1 dB (1×1) → 22.1 dB (1×1 with the same #params) |
+| **H3a** 3×3 kernels needed | ✅ within a normal budget; mainly a *speed* effect | At 3000 iterations: mean peak 26.4 dB → 20.1 dB (1×1) → 22.1 dB (1×1, same #params). With 10,000 iterations the matched 1×1 halves its gap (27.5 vs. 29.1 dB on kodim03) but fits >15× more slowly |
 | **H3b** bilinear upsampling needed | ❌ for the peak, but it matters for the decline | Same peak (26.6 dB), but reached ~3× earlier and dropping 5.2 vs. 1.4 dB afterwards |
 | **H3c** no prior without spatial structure | ✅ confirmed | MLP ≈ noisy input (+0.3 dB); memorises the noise within 500 iterations |
 | **H4** stopping without the clean image | ✅ confirmed | Noise-level rule with *estimated* σ: 0.24 dB lost on average. Held-out pixels: 1.0 dB. Fixed 1500: 1.6 dB |
 | **H5** EMA makes stopping less critical | ❌ refuted as stated | Drop unchanged (3.3 vs. 3.1 dB), but the whole curve is ~2 dB higher |
 
 **Answer to the research question, in two sentences:**
-- The convolutional architecture is responsible, but different parts do different jobs. The **3×3 spatial kernels** create the good early fit (without them there is little or no denoising, even with equal parameters, and without any spatial structure there is none). **Bilinear upsampling** slows down the later fitting of noise.
+- The convolutional architecture is responsible, but different parts do different jobs. The **3×3 spatial kernels** make structure fit fast, more than 15× faster than without them. That's why there is little or no denoising without them within a normal budget, even with equal parameters, and none at all without any spatial structure. **Bilinear upsampling** slows down the later fitting of noise.
 - And **yes, we can stop without the clean image**: the discrepancy principle with σ estimated from the noisy image lands within about 0.25 dB of the best possible stopping point.
 
-**Important caveat:** the 1×1 networks are still slowly improving at iteration 3000. So "weaker prior" and "slower optimisation" are not fully separated for them.
+**Important caveat:** the 10,000-iteration runs show that the 1×1 networks are mostly *slower*, not hopeless. The matched one halves its gap and is still improving. Whether it would eventually match the U-Net is open, so say "kernels are necessary *within a normal iteration budget*".
 
 ---
 

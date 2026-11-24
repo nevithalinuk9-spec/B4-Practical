@@ -306,13 +306,16 @@ Every reference must be checked before citing. The PDFs are in `papers/`.
 - [x] Stopping rules (`src/dip/stopping.py`), 4 analysis notebooks, 9 figures (`scripts/make_figures.py`)
 
 **Results:** see `STUDY_GUIDE.md` §10b and the notebooks. In short:
-- H1, H2, H3a, H3c and H4 are confirmed.
+- H1, H2, H3c and H4 are confirmed.
+- H3a is confirmed within a normal budget. Long runs show it is mainly a speed effect: the matched 1×1 network halves its gap after 10,000 iterations but fits >15× more slowly.
 - H3b is refuted for the peak, but upsampling controls the decline after the peak.
-- H5 is refuted as stated: EMA lifts the whole curve by ~2 dB but doesn't reduce the drop.
+- H5 is refuted as stated: EMA lifts the curve by ~2 dB but doesn't reduce the drop.
+
+- [x] Long runs (`--exp h3_long`, 2 × 10,000 iterations, run on Apple MPS)
+- [x] Scientific note `report/note.qmd` → `report/note.pdf` (4 pages + references)
+- [x] Slide deck `slides/slides.qmd` → `slides/slides.html` (+ `slides/slides.pdf`), 37 slides with speaker notes
 
 **Next**
-1. *(Optional, ~5 min on Colab)* One long run of `unet_1x1_wide` (e.g. 10,000 iterations on `kodim03`). It would separate "weaker prior" from "slower optimisation" for H3a.
-2. Write the Quarto note, using the numbers and figures from the notebooks.
-3. Prepare and rehearse the slides.
-
-**Fallback if time runs short:** drop H5 first, then the estimated-σ variant in H4, then the 4th image.
+1. Add all team members' names to `report/note.qmd` and `slides/slides.qmd` (the `author:` field), then re-render.
+2. Split the slides between presenters and rehearse the full 60 minutes once, using the questions in `STUDY_GUIDE.md` §12.
+3. Submit `report/note.qmd` + `report/note.pdf`, the slide deck, and the repository link.
