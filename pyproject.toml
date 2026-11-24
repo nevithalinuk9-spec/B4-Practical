@@ -1,0 +1,26 @@
+[project]
+name = "b4-dip"
+version = "0.1.0"
+description = "B4 · Architectural priors in image restoration: Deep Image Prior experiments"
+readme = "README.md"
+requires-python = ">=3.11,<3.13"
+dependencies = [
+    "torch (>=2.2)",
+    "numpy (>=1.26)",
+    "scikit-image (>=0.22)",
+    "matplotlib (>=3.8)",
+    "pandas (>=2.1)",
+    "tqdm (>=4.66)",
+    "requests (>=2.31)",
+]
+
+[tool.poetry]
+packages = [{ include = "dip", from = "src" }]
+
+[tool.poetry.group.dev.dependencies]
+jupyterlab = "^4.0"
+ipykernel = "^6.29"
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
