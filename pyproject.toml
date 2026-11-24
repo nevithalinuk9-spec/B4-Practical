@@ -12,6 +12,7 @@ dependencies = [
     "pandas (>=2.1)",
     "tqdm (>=4.66)",
     "requests (>=2.31)",
+    "pywavelets (>=1.5)",
 ]
 
 [tool.poetry]

@@ -248,17 +248,18 @@ $$\mathbb{E}\lVert f - y\rVert_M^2 = \lVert f - x\rVert_M^2 \;-\; 2\,\mathbb{E}\
 Therefore:
 $$\underbrace{\mathbb{E}\lVert f - y\rVert_M^2}_{\text{what we can measure}} = \underbrace{\lVert f - x\rVert_M^2}_{\text{true error (unknown)}} + \underbrace{|M|\sigma^2}_{\text{constant}}$$
 
-The measurable held-out loss is the true error plus a constant, so **they have their minimum at the same iteration**. We find the best stopping point **without ever seeing `x`**, and without knowing σ.
+The measurable held-out loss is the true error **on the held-out pixels** plus a constant, so they have their minimum at the same iteration. We find that minimum **without ever seeing `x`**, and without knowing σ.
 
-- **Cost:** the network sees 10 % fewer pixels. It can still fill them in from their neighbours, which is exactly the prior we are studying.
+- **Cost:** the network sees 10 % fewer pixels. It can still fill them in from their neighbours, which is exactly the prior we are studying. Measured cost: about 0.2 dB of peak PSNR.
 - **Practical issue:** the held-out loss is noisy from step to step, so smooth it (moving average) before taking the minimum.
+- **What we found:** this rule stops **too late** (about 1 dB lost on average). The catch is in the bold words above: the error on held-out pixels is not the error on the whole image. Held-out pixels are never fitted directly; they are only filled in from their neighbours. So the noise reaches them later, and their error keeps falling after the full-image error has started to rise.
 
 ### H5 (optional) — EMA averaging
 $$\text{avg}_t = 0.99\cdot\text{avg}_{t-1} + 0.01\cdot f_t$$
 - This is the average over roughly the last 100 outputs (1 / (1 − 0.99) = 100).
-- Random step-to-step fluctuations cancel out, so the result is less sensitive to *when* we stop.
+- **The idea:** random step-to-step fluctuations cancel out, so the result might be less sensitive to *when* we stop.
+- **What we found:** the decline after the peak is *not* smaller (3.3 vs. 3.1 dB), so H5 as stated is refuted. But the EMA output is about **2 dB better at every point** (mean peak 27.2 vs. 25.1 dB). A likely reason: each plain output comes from a randomly perturbed input `z`, so it is jittery. Averaging ~100 outputs works like an ensemble.
 - It's inspired by Cheng et al., who average posterior samples using SGLD, a more principled Bayesian method. **Ours is a simplification, not their method.**
-- First result: at iteration 3000, EMA 27.7 dB vs. 25.3 dB without averaging.
 
 ---
 
@@ -273,6 +274,28 @@ $$\text{avg}_t = 0.99\cdot\text{avg}_{t-1} + 0.01\cdot f_t$$
 | Wang et al. 2023, *Early Stopping for DIP* | Practical stopping rule based on the variance of recent outputs | H4 context |
 | Zhang et al. 2017, *Rethinking Generalization* | Networks can memorise even random labels; they just take longer | H2 context |
 | Wang et al. 2004, *SSIM* | Defines SSIM | Metric |
+
+---
+
+## 10b. Our results on one page
+
+Details, tables and figures are in `notebooks/` and `figures/`. The noisy input at σ = 25 scores about 20.2–20.4 dB.
+
+| Hypothesis | Verdict | Key numbers |
+|---|---|---|
+| **H1** PSNR peaks, then falls | ✅ confirmed | Every run peaks. Mean drop 1.6 dB (σ = 25) vs. 4.5 dB (σ = 50). Seed spread ≈ 0.1 dB |
+| **H2** structure fitted before noise | ✅ confirmed (reproduces Ulyanov) | Natural image below MSE 0.01 after 20–130 iterations; shuffled pixels after 2700 or never; noise never |
+| **H3a** 3×3 kernels needed | ✅ confirmed (against the literature's prediction) | Mean peak 26.4 dB → 20.1 dB (1×1) → 22.1 dB (1×1 with the same #params) |
+| **H3b** bilinear upsampling needed | ❌ for the peak, but it matters for the decline | Same peak (26.6 dB), but reached ~3× earlier and dropping 5.2 vs. 1.4 dB afterwards |
+| **H3c** no prior without spatial structure | ✅ confirmed | MLP ≈ noisy input (+0.3 dB); memorises the noise within 500 iterations |
+| **H4** stopping without the clean image | ✅ confirmed | Noise-level rule with *estimated* σ: 0.24 dB lost on average. Held-out pixels: 1.0 dB. Fixed 1500: 1.6 dB |
+| **H5** EMA makes stopping less critical | ❌ refuted as stated | Drop unchanged (3.3 vs. 3.1 dB), but the whole curve is ~2 dB higher |
+
+**Answer to the research question, in two sentences:**
+- The convolutional architecture is responsible, but different parts do different jobs. The **3×3 spatial kernels** create the good early fit (without them there is little or no denoising, even with equal parameters, and without any spatial structure there is none). **Bilinear upsampling** slows down the later fitting of noise.
+- And **yes, we can stop without the clean image**: the discrepancy principle with σ estimated from the noisy image lands within about 0.25 dB of the best possible stopping point.
+
+**Important caveat:** the 1×1 networks are still slowly improving at iteration 3000. So "weaker prior" and "slower optimisation" are not fully separated for them.
 
 ---
 

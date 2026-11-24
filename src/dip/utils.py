@@ -59,8 +59,8 @@ def add_gaussian_noise(x: torch.Tensor, sigma: float, seed: int = 0) -> torch.Te
     The result is NOT clipped to [0, 1], so the noise stays exactly Gaussian
     (this matters for the noise-level stopping rule, which assumes variance sigma^2).
     """
-    g = torch.Generator().manual_seed(seed)
-    noise = torch.randn(x.shape, generator=g) * (sigma / 255.0)
+    g = torch.Generator().manual_seed(int(seed))
+    noise = torch.randn(x.shape, generator=g) * (float(sigma) / 255.0)
     return x + noise
 
 

@@ -141,7 +141,8 @@ B4-Practical/
 │   ├── utils.py                     # image IO, noise, PSNR, SSIM, seeding, device selection
 │   ├── models.py                    # unet, unet_1x1, unet_1x1_wide, unet_nearest, mlp
 │   ├── fit.py                       # DIP loop with logging, held-out pixels, EMA
-│   └── stopping.py                  # TODO: stopping rules applied to logged runs
+│   ├── stopping.py                  # stopping rules applied to logged runs (H4)
+│   └── analysis.py                  # loading logs, summary tables, figure style
 ├── scripts/
 │   ├── download_data.py             # Kodak images → data/processed/
 │   └── run_all.py                   # runs experiments → results/<exp>/*.csv
@@ -299,15 +300,19 @@ Every reference must be checked before citing. The PDFs are in `papers/`.
 - [x] Repository structure and Poetry environment
 - [x] Data download (4 Kodak images)
 - [x] Models (`unet`, `unet_1x1`, `unet_1x1_wide`, `unet_nearest`, `mlp`), training loop with PSNR + SSIM logging, experiment runner
-- [x] Baseline check: `kodim03`, σ = 25 gives noisy input 20.4 dB, peak 28.8 dB at iteration ~720, final 25.3 dB (EMA 27.7 dB)
 - [x] Quarto note skeleton and bibliography
+- [x] All experiments run on Colab (L4): `lr_sweep` (20), `h1` (10), `h2` (6), `h3` (20). CSV logs are in `results/`
+- [x] `h3` and `lr_sweep` run **without** held-out pixels. Models without spatial mixing cannot fill them in, which would penalise them twice
+- [x] Stopping rules (`src/dip/stopping.py`), 4 analysis notebooks, 9 figures (`scripts/make_figures.py`)
+
+**Results:** see `STUDY_GUIDE.md` §10b and the notebooks. In short:
+- H1, H2, H3a, H3c and H4 are confirmed.
+- H3b is refuted for the peak, but upsampling controls the decline after the peak.
+- H5 is refuted as stated: EMA lifts the whole curve by ~2 dB but doesn't reduce the drop.
 
 **Next**
-1. Run `lr_sweep` and fix the learning rate per architecture in `run_all.py`.
-2. Run `h1`, `h2`, `h3` (locally or on Colab).
-3. Implement `src/dip/stopping.py` and evaluate H4 on the `h1` logs.
-4. Build the notebooks and figures.
-5. Write the Quarto note.
-6. Prepare and rehearse the slides.
+1. *(Optional, ~5 min on Colab)* One long run of `unet_1x1_wide` (e.g. 10,000 iterations on `kodim03`). It would separate "weaker prior" from "slower optimisation" for H3a.
+2. Write the Quarto note, using the numbers and figures from the notebooks.
+3. Prepare and rehearse the slides.
 
 **Fallback if time runs short:** drop H5 first, then the estimated-σ variant in H4, then the 4th image.

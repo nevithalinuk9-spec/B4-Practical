@@ -11,10 +11,13 @@ src/dip/          library code
   utils.py        image loading, noise, PSNR/SSIM, seeding, device selection
   models.py       UNet (3×3), 1×1 and nearest-upsampling variants, MLP
   fit.py          DIP optimisation loop with logging, held-out pixels and EMA
+  stopping.py     stopping rules (oracle, fixed, noise level, held-out pixels) for H4
+  analysis.py     loading logs, summary tables, figure style
 scripts/
   download_data.py   downloads and crops the Kodak test images into data/
   run_all.py         runs the experiments, writes one CSV per run to results/
-notebooks/        one notebook per hypothesis; loads results/ and makes figures
+  make_figures.py    re-executes all notebooks → every figure and table
+notebooks/        01_H1_peak, 02_H2_fitting_speed, 03_H3_architectures, 04_H4_H5_stopping
 figures/          figures used in the note and slides
 report/           Quarto scientific note (note.qmd) + references.bib
 papers/           seed papers and further literature
@@ -39,13 +42,17 @@ On Google Colab (no Poetry), clone the repo and run `pip install -e .` instead.
 poetry run python scripts/download_data.py
 ```
 ```bash
-poetry run python scripts/run_all.py --exp h1
+poetry run python scripts/run_all.py --exp all
 ```
 ```bash
-poetry run jupyter lab
+poetry run python scripts/make_figures.py
 ```
 
-`run_all.py` skips runs whose CSV already exists, so it can be interrupted and resumed. Use `--quick` for a short smoke test (few iterations, one image).
+- `run_all.py` runs `h1`, `h2`, `lr_sweep` and `h3`: 56 runs, about 50 s each on an NVIDIA L4 and about 2.5 min on Apple MPS.
+- `h3` automatically uses each model's best learning rate from `lr_sweep`.
+- Runs whose CSV already exists are skipped, so the script can be interrupted and resumed. Use `--quick` for a short smoke test.
+- The CSV logs from our runs are committed in `results/`, so `make_figures.py` alone reproduces every figure and table without re-running the experiments.
+- To explore interactively, use `poetry run jupyter lab`.
 
 Render the note (needs [Quarto](https://quarto.org) and `quarto install tinytex`):
 
